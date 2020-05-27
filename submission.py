@@ -5,10 +5,11 @@ code on the relevant classes included here. Do not add any classes or functions
 to this file that are not part of the classes that we want.
 """
 
-import heapq
+from heapq import heappush, heappop
 import os
 import pickle
 import math
+from datetime import datetime as dt
 
 
 class PriorityQueue(object):
@@ -31,7 +32,7 @@ class PriorityQueue(object):
 
     def __init__(self):
         """Initialize a new Priority Queue."""
-
+        self.key_count_dict = {}
         self.queue = []
 
     def pop(self):
@@ -41,9 +42,7 @@ class PriorityQueue(object):
         Returns:
             The node with the highest priority.
         """
-
-        # TODO: finish this function!
-        raise NotImplementedError
+        return heappop(self.queue)
 
     def remove(self, node):
         """
@@ -75,10 +74,13 @@ class PriorityQueue(object):
         Args:
             node: Comparable Object to be added to the priority queue.
         """
+        if not node[0] in self.key_count_dict.keys():
+            heappush(self.queue, (node[0], 0, node[1]))
+            self.key_count_dict[node[0]] = 0
+        else:
+            self.key_count_dict[node[0]] += 1
+            heappush(self.queue, (node[0], self.key_count_dict[node[0]], node[1]))
 
-        # TODO: finish this function!
-        raise NotImplementedError
-        
     def __contains__(self, key):
         """
         Containment Check operator for 'in'
@@ -306,8 +308,8 @@ def tridirectional_upgraded(graph, goals, heuristic=euclidean_dist_heuristic):
 
 def return_your_name():
     """Return your name from this function"""
-    # TODO: finish this function
-    raise NotImplementedError
+    name = "Nitesh Arora"
+    return name
 
 
 def custom_heuristic(graph, v, goal):
