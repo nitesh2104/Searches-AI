@@ -6,10 +6,8 @@ to this file that are not part of the classes that we want.
 """
 
 from heapq import heappush, heappop
-import os
-import pickle
+
 import math
-from datetime import datetime as dt
 
 
 class PriorityQueue(object):
@@ -146,10 +144,43 @@ def breadth_first_search(graph, start, goal):
 
     Returns:
         The best path as a list from the start and goal nodes (including both).
+        path = list(letter states)
     """
+    if start == goal:
+        return []
 
-    # TODO: finish this function!
-    raise NotImplementedError
+    frontier = []
+    explored = set()
+
+    frontier.append(start)
+
+    explored.add(start)
+
+    while True:
+        if not frontier:
+            return False
+
+        path = frontier.pop(0)
+
+        node_to_expand = path[-1]
+
+        new_frontiers = graph[node_to_expand]
+
+        for new_frontier in new_frontiers:
+
+            if new_frontier not in explored:
+
+                explored.add(new_frontier)
+                if type(path) == list:
+                    path.append(new_frontier)
+                    final_path = path
+                else:
+                    final_path = [path, new_frontier]
+
+                if new_frontier == goal:
+                    return final_path
+
+                frontier.append(final_path)
 
 
 def uniform_cost_search(graph, start, goal):
@@ -166,9 +197,53 @@ def uniform_cost_search(graph, start, goal):
     Returns:
         The best path as a list from the start and goal nodes (including both).
     """
+    if start == goal:
+        return []
 
-    # TODO: finish this function!
-    raise NotImplementedError
+    frontier = PriorityQueue()
+    explored = set()
+    final_path_list = []
+    path_cost = 0
+    heappush(frontier.queue, (path_cost, start))
+
+    while frontier.size() != 0:
+        if frontier.size() == 0:
+            return False
+
+        path = heappop(frontier.queue)
+
+        if goal in path[1]:
+            return path[1]
+
+        node_to_expand = path[1][-1]
+
+        explored.add(node_to_expand)
+
+        new_frontiers = sorted(graph[node_to_expand].items(), key=lambda x: x[1]["weight"])
+
+        for new_frontier, frontier_weight in new_frontiers:
+
+            if new_frontier not in explored:
+
+                path_cost = path[0] + frontier_weight["weight"]
+
+                if type(path[1]) == str:
+                    fpath = (path[1],) + (new_frontier,)
+                else:
+                    fpath = path[1] + (new_frontier,)
+                final_path = (path_cost, (fpath))
+
+                if new_frontier == goal:
+                    if not final_path_list:
+                        final_path_list = final_path
+                    else:
+                        if path_cost < final_path_list[0]:
+                            final_path_list = final_path
+                    continue
+
+                heappush(frontier.queue, final_path)
+
+    return final_path_list[1] if final_path_list else False
 
 
 def null_heuristic(graph, v, goal):
@@ -183,7 +258,6 @@ def null_heuristic(graph, v, goal):
     Returns:
         0
     """
-
     return 0
 
 
@@ -201,9 +275,10 @@ def euclidean_dist_heuristic(graph, v, goal):
     Returns:
         Euclidean distance between `v` node and `goal` node
     """
+    pos_a = graph.nodes[v]['pos']
+    pos_b = graph.nodes[goal]['pos']
 
-    # TODO: finish this function!
-    raise NotImplementedError
+    return ((pos_a[0] - pos_b[0]) ** 2 + (pos_a[1] - pos_b[1]) ** 2) ** 0.5
 
 
 def a_star(graph, start, goal, heuristic=euclidean_dist_heuristic):
@@ -222,9 +297,48 @@ def a_star(graph, start, goal, heuristic=euclidean_dist_heuristic):
     Returns:
         The best path as a list from the start and goal nodes (including both).
     """
+    if start == goal:
+        return []
 
-    # TODO: finish this function!
-    raise NotImplementedError
+    frontier = PriorityQueue()
+    explored = set()
+    path_cost = 0
+    distance_from_goal = heuristic(graph, start, goal)
+    final_path_list = []
+    heappush(frontier.queue, (path_cost + distance_from_goal, start))
+
+    while frontier.size() != 0:
+        if frontier.size() == 0:
+            return False
+
+        path = heappop(frontier.queue)
+
+        node_to_expand = path[1][-1]
+        explored.add(node_to_expand)
+
+        new_frontiers = graph[node_to_expand].items()
+
+        for new_frontier, weight in new_frontiers:
+            if new_frontier not in explored:
+                path_cost = weight['weight'] + euclidean_dist_heuristic(graph, new_frontier, goal)
+
+                if type(path[1]) == str:
+                    fpath = (path[1],) + (new_frontier,)
+                else:
+                    fpath = path[1] + (new_frontier,)
+
+                final_path = (path_cost, (fpath))
+
+                if new_frontier == goal:
+                    if not final_path_list:
+                        final_path_list = final_path
+                    else:
+                        if path_cost < final_path_list[0]:
+                            final_path_list = final_path
+                    continue
+                heappush(frontier.queue, final_path)
+
+    return False if not final_path_list else final_path_list[1]
 
 
 def bidirectional_ucs(graph, start, goal):
@@ -241,13 +355,63 @@ def bidirectional_ucs(graph, start, goal):
     Returns:
         The best path as a list from the start and goal nodes (including both).
     """
+    if start == goal:
+        return []
 
-    # TODO: finish this function!
-    raise NotImplementedError
+    frontier_start = PriorityQueue()
+    explored_start = set()
+    path_cost_start = 0
+
+    frontier_goal = PriorityQueue()
+    explored_goal = set()
+    path_cost_goal = 0
+
+    final_path_list = []
+
+    heappush(frontier_start.queue, (path_cost_start, start))
+    heappush(frontier_goal.queue, (path_cost_goal, goal))
+
+    while frontier_start.size() != 0 and frontier_goal.size() != 0:
+        if frontier_start.size() == 0:
+            return False
+
+        path = heappop(frontier_start.queue)
+
+        if goal in path[1]:
+            return path[1]
+
+        node_to_expand = path[1][-1]
+
+        explored_start.add(node_to_expand)
+
+        new_frontiers = sorted(graph[node_to_expand].items(), key=lambda x: x[1]["weight"])
+
+        for new_frontier, frontier_weight in new_frontiers:
+
+            if new_frontier not in explored_start:
+
+                path_cost_start = path[0] + frontier_weight["weight"]
+
+                if type(path[1]) == str:
+                    fpath = (path[1],) + (new_frontier,)
+                else:
+                    fpath = path[1] + (new_frontier,)
+                final_path = (path_cost_start, (fpath))
+
+                if new_frontier == goal:
+                    if not final_path_list:
+                        final_path_list = final_path
+                    else:
+                        if path_cost_start < final_path_list[0]:
+                            final_path_list = final_path
+                    continue
+
+                heappush(frontier_start.queue, final_path)
+
+    return final_path_list[1] if final_path_list else False
 
 
-def bidirectional_a_star(graph, start, goal,
-                         heuristic=euclidean_dist_heuristic):
+def bidirectional_a_star(graph, start, goal, heuristic=euclidean_dist_heuristic):
     """
     Exercise 2: Bidirectional A*.
 
@@ -323,6 +487,7 @@ def custom_heuristic(graph, v, goal):
            Custom heuristic distance between `v` node and `goal` node
        """
 
+
 pass
 
 
@@ -369,8 +534,8 @@ def load_data(graph, time_left):
 
     # nodes = graph.nodes()
     return None
- 
- 
+
+
 def haversine_dist_heuristic(graph, v, goal):
     """
     Note: This provided heuristic is for the Atlanta race.
@@ -384,12 +549,13 @@ def haversine_dist_heuristic(graph, v, goal):
         Haversine distance between `v` node and `goal` node
     """
 
-    #Load latitude and longitude coordinates in radians:
+    # Load latitude and longitude coordinates in radians:
     vLatLong = (math.radians(graph.nodes[v]["pos"][0]), math.radians(graph.nodes[v]["pos"][1]))
     goalLatLong = (math.radians(graph.nodes[goal]["pos"][0]), math.radians(graph.nodes[goal]["pos"][1]))
 
-    #Now we want to execute portions of the formula:
-    constOutFront = 2*6371 #Radius of Earth is 6,371 kilometers
-    term1InSqrt = (math.sin((goalLatLong[0]-vLatLong[0])/2))**2 #First term inside sqrt
-    term2InSqrt = math.cos(vLatLong[0])*math.cos(goalLatLong[0])*((math.sin((goalLatLong[1]-vLatLong[1])/2))**2) #Second term
-    return constOutFront*math.asin(math.sqrt(term1InSqrt+term2InSqrt)) #Straight application of formula
+    # Now we want to execute portions of the formula:
+    constOutFront = 2 * 6371  # Radius of Earth is 6,371 kilometers
+    term1InSqrt = (math.sin((goalLatLong[0] - vLatLong[0]) / 2)) ** 2  # First term inside sqrt
+    term2InSqrt = math.cos(vLatLong[0]) * math.cos(goalLatLong[0]) * (
+            (math.sin((goalLatLong[1] - vLatLong[1]) / 2)) ** 2)  # Second term
+    return constOutFront * math.asin(math.sqrt(term1InSqrt + term2InSqrt))  # Straight application of formula

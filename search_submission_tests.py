@@ -39,7 +39,7 @@ class TestPriorityQueue(unittest.TestCase):
 
         for node in temp_list:
             queue.append(node)
-        
+
         for expected_node in temp_list:
             actual_node = queue.pop()
             self.assertEqual(expected_node[-1], actual_node[-1])
@@ -59,14 +59,11 @@ class TestBasicSearch(unittest.TestCase):
         start = 'a'
         goal = 'u'
 
-        node_positions = {n: self.romania.nodes[n]['pos'] for n in
-                          self.romania.nodes.keys()}
+        node_positions = {n: self.romania.nodes[n]['pos'] for n in self.romania.nodes.keys()}
 
         self.romania.reset_search()
         path = breadth_first_search(self.romania, start, goal)
-
-        self.draw_graph(self.romania, node_positions=node_positions,
-                        start=start, goal=goal, path=path)
+        self.draw_graph(self.romania, node_positions=node_positions, start=start, goal=goal, path=path)
 
     def test_bfs_empty_path(self):
         start = "a"
@@ -79,14 +76,12 @@ class TestBasicSearch(unittest.TestCase):
         start = 'a'
         goal = 'u'
 
-        node_positions = {n: self.romania.nodes[n]['pos'] for n in
-                          self.romania.nodes.keys()}
+        node_positions = {n: self.romania.nodes[n]['pos'] for n in self.romania.nodes.keys()}
 
         self.romania.reset_search()
         path = uniform_cost_search(self.romania, start, goal)
 
-        self.draw_graph(self.romania, node_positions=node_positions,
-                        start=start, goal=goal, path=path)
+        self.draw_graph(self.romania, node_positions=node_positions, start=start, goal=goal, path=path)
 
     def test_a_star(self):
         """Test and visualize A* search"""
@@ -98,9 +93,9 @@ class TestBasicSearch(unittest.TestCase):
         
         self.romania.reset_search()
         path = a_star(self.romania, start, goal)
+        print(path)
 
-        self.draw_graph(self.romania, node_positions=node_positions,
-                        start=start, goal=goal, path=path)
+        self.draw_graph(self.romania, node_positions=node_positions, start=start, goal=goal, path=path)
 
     @staticmethod
     def draw_graph(graph, node_positions=None, start=None, goal=None,
