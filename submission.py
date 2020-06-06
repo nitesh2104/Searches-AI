@@ -4,7 +4,7 @@ This file is your main submission that will be graded against. Only copy-paste
 code on the relevant classes included here. Do not add any classes or functions
 to this file that are not part of the classes that we want.
 """
-
+import traceback
 from heapq import heappush, heappop
 
 import math
@@ -32,6 +32,7 @@ class PriorityQueue(object):
         """Initialize a new Priority Queue."""
         self.key_count_dict = {}
         self.queue = []
+        self.count = 0
 
     def pop(self):
         """
@@ -40,7 +41,9 @@ class PriorityQueue(object):
         Returns:
             The node with the highest priority.
         """
-        return heappop(self.queue)
+        val = heappop(self.queue)
+        del val[1]
+        return val
 
     def remove(self, node):
         """
@@ -52,8 +55,9 @@ class PriorityQueue(object):
         Args:
             node (tuple): The node to remove from the queue.
         """
-
-        raise NotImplementedError
+        for cost, priority, path_node in self.queue:
+            if node == path_node:
+                self.queue.remove([cost, priority, path_node])
 
     def __iter__(self):
         """Queue iterator."""
@@ -72,12 +76,9 @@ class PriorityQueue(object):
         Args:
             node: Comparable Object to be added to the priority queue.
         """
-        if not node[0] in self.key_count_dict.keys():
-            heappush(self.queue, (node[0], 0, node[1]))
-            self.key_count_dict[node[0]] = 0
-        else:
-            self.key_count_dict[node[0]] += 1
-            heappush(self.queue, (node[0], self.key_count_dict[node[0]], node[1]))
+        self.count += 1
+        new_node = [node[0], self.count] + list(node[1:])
+        heappush(self.queue, new_node)
 
     def __contains__(self, key):
         """
@@ -148,39 +149,21 @@ def breadth_first_search(graph, start, goal):
     """
     if start == goal:
         return []
-
     frontier = []
     explored = set()
-
-    frontier.append(start)
-
+    frontier.append([start])
     explored.add(start)
-
     while True:
         if not frontier:
             return False
-
         path = frontier.pop(0)
-
-        node_to_expand = path[-1]
-
-        new_frontiers = graph[node_to_expand]
-
-        for new_frontier in new_frontiers:
-
+        new_frontiers = sorted(graph[path[-1]].items(), key=lambda x: x[0])
+        for new_frontier, weights in new_frontiers:
             if new_frontier not in explored:
-
                 explored.add(new_frontier)
-                if type(path) == list:
-                    path.append(new_frontier)
-                    final_path = path
-                else:
-                    final_path = [path, new_frontier]
-
                 if new_frontier == goal:
-                    return final_path
-
-                frontier.append(final_path)
+                    return path + [new_frontier]
+                frontier.append(path + [new_frontier])
 
 
 def uniform_cost_search(graph, start, goal):
@@ -199,51 +182,20 @@ def uniform_cost_search(graph, start, goal):
     """
     if start == goal:
         return []
-
     frontier = PriorityQueue()
     explored = set()
-    final_path_list = []
-    path_cost = 0
-    heappush(frontier.queue, (path_cost, start))
-
-    while frontier.size() != 0:
-        if frontier.size() == 0:
+    frontier.append([0, [start]])
+    while True:
+        if not frontier.size():
             return False
-
-        path = heappop(frontier.queue)
-
-        if goal in path[1]:
-            return path[1]
-
-        node_to_expand = path[1][-1]
-
-        explored.add(node_to_expand)
-
-        new_frontiers = sorted(graph[node_to_expand].items(), key=lambda x: x[1]["weight"])
-
-        for new_frontier, frontier_weight in new_frontiers:
-
-            if new_frontier not in explored:
-
-                path_cost = path[0] + frontier_weight["weight"]
-
-                if type(path[1]) == str:
-                    fpath = (path[1],) + (new_frontier,)
-                else:
-                    fpath = path[1] + (new_frontier,)
-                final_path = (path_cost, (fpath))
-
-                if new_frontier == goal:
-                    if not final_path_list:
-                        final_path_list = final_path
-                    else:
-                        if path_cost < final_path_list[0]:
-                            final_path_list = final_path
-                    continue
-
-                heappush(frontier.queue, final_path)
-
-    return final_path_list[1] if final_path_list else False
+        curr_cost, path = frontier.pop()
+        if goal == path[-1]:
+            return path
+        if path[-1] not in explored:
+            explored.add(path[-1])
+            for new_frontier, weights in sorted(graph[path[-1]].items(), key=lambda x: x[1]['weight']):
+                if new_frontier not in explored:
+                    frontier.append((curr_cost + weights["weight"], path + [new_frontier]))
 
 
 def null_heuristic(graph, v, goal):
@@ -277,7 +229,6 @@ def euclidean_dist_heuristic(graph, v, goal):
     """
     pos_a = graph.nodes[v]['pos']
     pos_b = graph.nodes[goal]['pos']
-
     return ((pos_a[0] - pos_b[0]) ** 2 + (pos_a[1] - pos_b[1]) ** 2) ** 0.5
 
 
@@ -299,46 +250,22 @@ def a_star(graph, start, goal, heuristic=euclidean_dist_heuristic):
     """
     if start == goal:
         return []
-
     frontier = PriorityQueue()
     explored = set()
-    path_cost = 0
-    distance_from_goal = heuristic(graph, start, goal)
-    final_path_list = []
-    heappush(frontier.queue, (path_cost + distance_from_goal, start))
-
-    while frontier.size() != 0:
-        if frontier.size() == 0:
+    frontier.append([heuristic(graph, start, goal), 0, [start]])
+    while True:
+        if not frontier.size():
             return False
-
-        path = heappop(frontier.queue)
-
-        node_to_expand = path[1][-1]
-        explored.add(node_to_expand)
-
-        new_frontiers = graph[node_to_expand].items()
-
-        for new_frontier, weight in new_frontiers:
-            if new_frontier not in explored:
-                path_cost = weight['weight'] + euclidean_dist_heuristic(graph, new_frontier, goal)
-
-                if type(path[1]) == str:
-                    fpath = (path[1],) + (new_frontier,)
-                else:
-                    fpath = path[1] + (new_frontier,)
-
-                final_path = (path_cost, (fpath))
-
-                if new_frontier == goal:
-                    if not final_path_list:
-                        final_path_list = final_path
-                    else:
-                        if path_cost < final_path_list[0]:
-                            final_path_list = final_path
-                    continue
-                heappush(frontier.queue, final_path)
-
-    return False if not final_path_list else final_path_list[1]
+        curr_cost_goal, curr_path_cost, path = frontier.pop()
+        if goal == path[-1]:
+            return path
+        if path[-1] not in explored:
+            explored.add(path[-1])
+            for new_frontier, weight in sorted(graph[path[-1]].items(), key=lambda x: x[1]["weight"]):
+                if new_frontier not in explored:
+                    frontier.append(
+                        [curr_path_cost + weight['weight'] + euclidean_dist_heuristic(graph, new_frontier, goal),
+                         curr_path_cost + weight['weight'], path + [new_frontier]])
 
 
 def bidirectional_ucs(graph, start, goal):
@@ -357,58 +284,47 @@ def bidirectional_ucs(graph, start, goal):
     """
     if start == goal:
         return []
-
     frontier_start = PriorityQueue()
-    explored_start = set()
-    path_cost_start = 0
-
     frontier_goal = PriorityQueue()
+    final_path = PriorityQueue()
+    explored_start = set()
     explored_goal = set()
-    path_cost_goal = 0
+    frontier_start.append([0, [start]])
+    frontier_goal.append([0, [goal]])
+    while True:
+        if not frontier_start.size() or not frontier_goal.size():
+            return final_path.queue[0][-1] if final_path.size() else False
 
-    final_path_list = []
+        if final_path.size() and frontier_start.queue[0][0] + frontier_goal.queue[0][0] > final_path.queue[0][0]:
+            return final_path.queue[0][-1]
 
-    heappush(frontier_start.queue, (path_cost_start, start))
-    heappush(frontier_goal.queue, (path_cost_goal, goal))
+        # start
+        curr_cost, path = frontier_start.pop()
+        if goal == path[-1]:
+            return path
+        for goal_frontier in frontier_goal.queue:
+            path_cost, _, goal_path = goal_frontier
+            if path[-1] in goal_path:
+                final_path.append([curr_cost + path_cost, path + goal_path[::-1][1:]])
+        if path[-1] not in explored_start:
+            explored_start.add(path[-1])
+            for new_frontier, weights in sorted(graph[path[-1]].items(), key=lambda x: x[1]['weight']):
+                if new_frontier not in explored_start:
+                    frontier_start.append((curr_cost + weights["weight"], path + [new_frontier]))
 
-    while frontier_start.size() != 0 and frontier_goal.size() != 0:
-        if frontier_start.size() == 0:
-            return False
-
-        path = heappop(frontier_start.queue)
-
-        if goal in path[1]:
-            return path[1]
-
-        node_to_expand = path[1][-1]
-
-        explored_start.add(node_to_expand)
-
-        new_frontiers = sorted(graph[node_to_expand].items(), key=lambda x: x[1]["weight"])
-
-        for new_frontier, frontier_weight in new_frontiers:
-
-            if new_frontier not in explored_start:
-
-                path_cost_start = path[0] + frontier_weight["weight"]
-
-                if type(path[1]) == str:
-                    fpath = (path[1],) + (new_frontier,)
-                else:
-                    fpath = path[1] + (new_frontier,)
-                final_path = (path_cost_start, (fpath))
-
-                if new_frontier == goal:
-                    if not final_path_list:
-                        final_path_list = final_path
-                    else:
-                        if path_cost_start < final_path_list[0]:
-                            final_path_list = final_path
-                    continue
-
-                heappush(frontier_start.queue, final_path)
-
-    return final_path_list[1] if final_path_list else False
+        # goal
+        curr_cost, path = frontier_goal.pop()
+        if start == path[-1]:
+            return path[::-1]
+        for start_frontier in frontier_start.queue:
+            path_cost, _, start_path = start_frontier
+            if path[-1] in start_path:
+                final_path.append([curr_cost + path_cost, start_path + path[::-1][1:]])
+        if path[-1] not in explored_goal:
+            explored_goal.add(path[-1])
+            for new_frontier, weights in sorted(graph[path[-1]].items(), key=lambda x: x[1]['weight']):
+                if new_frontier not in explored_start:
+                    frontier_goal.append((curr_cost + weights["weight"], path + [new_frontier]))
 
 
 def bidirectional_a_star(graph, start, goal, heuristic=euclidean_dist_heuristic):
@@ -427,12 +343,80 @@ def bidirectional_a_star(graph, start, goal, heuristic=euclidean_dist_heuristic)
     Returns:
         The best path as a list from the start and goal nodes (including both).
     """
+    if start == goal:
+        return []
+    frontier_start, frontier_goal, final_path = PriorityQueue(), PriorityQueue(), PriorityQueue()
+    explored_start, explored_goal = set(), set()
+    frontier_start.append([heuristic(graph, start, goal), 0, [start]])
+    frontier_goal.append([heuristic(graph, start, goal), 0, [goal]])
+    while True:
+        if not frontier_start.size() or not frontier_goal.size():
+            return final_path.queue[0][-1] if final_path.size() else False
 
-    # TODO: finish this function!
-    raise NotImplementedError
+        if final_path.size():
+            if sorted(frontier_start.queue, key=lambda x: x[2])[0][2] + \
+                    sorted(frontier_goal.queue, key=lambda x: x[2])[0][2] > final_path.queue[0][0]:
+                return final_path.queue[0][-1]
+
+        # start
+        curr_cost_goal, curr_path_cost, path = frontier_start.pop()
+        if goal == path[-1]:
+            return path
+        for goal_frontier in frontier_goal.queue:
+            path_cost, _, curr_cost, goal_path = goal_frontier
+            if path[-1] in goal_path:
+                final_path.append([curr_path_cost + curr_cost, path + goal_path[::-1][1:]])
+        if path[-1] not in explored_start:
+            explored_start.add(path[-1])
+            for new_frontier, weights in sorted(graph[path[-1]].items(), key=lambda x: x[1]['weight']):
+                if new_frontier not in explored_start:
+                    frontier_start.append(
+                        [curr_path_cost + weights['weight'] + euclidean_dist_heuristic(graph, new_frontier, goal),
+                         curr_path_cost + weights['weight'], path + [new_frontier]])
+
+        # goal
+        curr_cost_goal, curr_path_cost, path = frontier_goal.pop()
+        if start == path[-1]:
+            return path[::-1]
+        for start_frontier in frontier_start.queue:
+            path_cost, _, curr_cost, start_path = start_frontier
+            if path[-1] in start_path:
+                final_path.append([curr_path_cost + curr_cost, start_path + path[::-1][1:]])
+        if path[-1] not in explored_goal:
+            explored_goal.add(path[-1])
+            for new_frontier, weights in sorted(graph[path[-1]].items(), key=lambda x: x[1]['weight']):
+                if new_frontier not in explored_start:
+                    frontier_goal.append(
+                        [curr_path_cost + weights['weight'] + euclidean_dist_heuristic(graph, new_frontier, goal),
+                         curr_path_cost + weights['weight'], path + [new_frontier]])
 
 
-def tridirectional_search(graph, goals):
+def last_node(queue):
+    return queue[-1]
+
+def merged_path(path1, path2, path3, goal):
+    if all([x in path1[1][1] for x in goal]): return path1[1][1]
+    if all([x in path2[1][1] for x in goal]): return path2[1][1]
+    if all([x in path3[1][1] for x in goal]): return path3[1][1]
+
+    merged_paths = sorted([path1] + [path2] + [path3], key=lambda x: x[1][0])
+    path1 = last_node(merged_paths[0][1])
+    path2 = last_node(merged_paths[1][1])
+
+    if path1 == path2: return path1
+    elif all([x in path2 for x in path1]): return path2
+    elif all([x in path1 for x in path2]): return path1
+    else:
+        if path1[0] == path2[0]: return path1[::-1][:-1] + path2
+        elif path1[-1] == path2[0]: return path1[:-1] + path2
+        elif path1[0] == path2[-1]: return path2[:-1] + path1
+        elif path1[-1] == path2[-1]: return path1[:-1] + path2[::-1]
+        else:
+            print("ERRORRRRR")
+            return False
+
+
+def tridirectional_search(graph, goal):
     """
     Exercise 3: Tridirectional UCS Search
 
@@ -446,11 +430,110 @@ def tridirectional_search(graph, goals):
         The best path as a list from one of the goal nodes (including both of
         the other goal nodes).
     """
-    # TODO: finish this function
-    raise NotImplementedError
+    if goal[0] == goal[1] == goal[2]:
+        return []
+
+    frontier_0, frontier_1, frontier_2, final_path = [PriorityQueue() for _ in range(4)]
+    explored_0, explored_1, explored_2 = [set() for _ in range(3)]
+    g0g1_found, g1g2_found, g0g2_found = [False, []], [False, []], [False,[]]
+    frontier_0.append([0, [goal[0]]])
+    frontier_1.append([0, [goal[1]]])
+    frontier_2.append([0, [goal[2]]])
+
+    while True:
+        if not frontier_0.size() or not frontier_1.size() or not frontier_2.size():
+            return merged_path(g0g1_found, g1g2_found, g0g2_found, goal)
+
+        if final_path.count:
+            for final_path_cost, _, fpath in final_path.queue:
+                if goal[0] in fpath and goal[1] in fpath and not g0g1_found:
+                    if frontier_0.queue[0][0] + frontier_1.queue[0][0] > final_path_cost:
+                        g0g1_found = [True, [final_path_cost, final_path]]
+                if goal[1] in fpath and goal[2] in fpath and not g1g2_found:
+                    if frontier_1.queue[0][0] + frontier_2.queue[0][0] > final_path_cost:
+                        g1g2_found = [True, [final_path_cost, final_path]]
+                if goal[0] in fpath and goal[2] in fpath and not g0g2_found:
+                    if frontier_0.queue[0][0] + frontier_2.queue[0][0] > final_path_cost:
+                        g0g2_found = [True, [final_path_cost, final_path]]
+
+        if g0g1_found[0] and g1g2_found[0] and g0g2_found[0]:
+            return merged_path(g0g1_found, g1g2_found, g0g2_found, goal)
+
+        if frontier_0.size():
+            curr_path_cost, current_path = frontier_0.pop()
+            if last_node(current_path) == goal[1]:
+                final_path.append([curr_path_cost, current_path])
+                if not g0g1_found[0] or curr_path_cost < g0g1_found[1][0]:
+                    g0g1_found = [True, [curr_path_cost, current_path]]
+            if last_node(current_path) == goal[2]:
+                final_path.append([curr_path_cost, current_path])
+                if not g0g2_found[0] or curr_path_cost < g0g2_found[1][0]:
+                    g0g2_found = [True, [curr_path_cost, current_path]]
+            if not g0g1_found[0]:
+                for goal_path_cost, _, goal_path in frontier_1.queue:
+                    if last_node(current_path) in goal_path:
+                        final_path.append([curr_path_cost + goal_path_cost, current_path + goal_path[::-1][1:]])
+            if not g0g2_found[0]:
+                for goal_path_cost, _, goal_path in frontier_2.queue:
+                    if last_node(current_path) in goal_path:
+                        final_path.append([curr_path_cost + goal_path_cost, current_path + goal_path[::-1][1:]])
+            if last_node(current_path) not in explored_0:
+                explored_0.add(last_node(current_path))
+                for new_frontier, frontier_weight in sorted(graph[last_node(current_path)].items(), key=lambda x: x[1]['weight']):
+                    if new_frontier not in explored_0:
+                        frontier_0.append([curr_path_cost + frontier_weight["weight"], current_path + [new_frontier]])
+
+        if frontier_1.size():
+            curr_path_cost, current_path = frontier_1.pop()
+            if last_node(current_path) == goal[0]:
+                final_path.append([curr_path_cost, current_path])
+                if not g0g1_found[0] or curr_path_cost < g0g1_found[1][0]:
+                    g0g1_found = [True, [curr_path_cost, current_path]]
+            if last_node(current_path) == goal[2]:
+                final_path.append([curr_path_cost, current_path])
+                if not g1g2_found[0] or curr_path_cost < g1g2_found[1][0]:
+                    g1g2_found = [True, [curr_path_cost, current_path]]
+            if not g0g1_found[0]:
+                for goal_path_cost, _, goal_path in frontier_0.queue:
+                    if last_node(current_path) in goal_path:
+                        final_path.append([curr_path_cost + goal_path_cost, current_path + goal_path[::-1][1:]])
+            if not g1g2_found[0]:
+                for goal_path_cost, _, goal_path in frontier_2.queue:
+                    if last_node(current_path) in goal_path:
+                        final_path.append([curr_path_cost + goal_path_cost, current_path + goal_path[::-1][1:]])
+            if last_node(current_path) not in explored_1:
+                explored_1.add(last_node(current_path))
+                for new_frontier, frontier_weight in sorted(graph[last_node(current_path)].items(), key=lambda x: x[1]['weight']):
+                    if new_frontier not in explored_1:
+                        frontier_1.append([curr_path_cost + frontier_weight["weight"], current_path + [new_frontier]])
+
+        if frontier_2.size():
+            curr_path_cost, current_path = frontier_2.pop()
+            if last_node(current_path) == goal[0]:
+                final_path.append([curr_path_cost, current_path])
+                if not g0g2_found[0] or curr_path_cost < g0g2_found[1][0]:
+                    g0g2_found = [True, [curr_path_cost, current_path]]
+            if last_node(current_path) == goal[1]:
+                final_path.append([curr_path_cost, current_path])
+                if not g1g2_found[0] or curr_path_cost < g1g2_found[1][0]:
+                    g1g2_found = [True, [curr_path_cost, current_path]]
+            if not g0g2_found[0]:
+                for goal_path_cost, _, goal_path in frontier_0.queue:
+                    if last_node(current_path) in goal_path:
+                        final_path.append([curr_path_cost + goal_path_cost, current_path + goal_path[::-1][1:]])
+            if not g1g2_found[0]:
+                for goal_path_cost, _, goal_path in frontier_1.queue:
+                    if last_node(current_path) in goal_path:
+                        final_path.append([curr_path_cost + goal_path_cost, current_path + goal_path[::-1][1:]])
+            if last_node(current_path) not in explored_2:
+                explored_2.add(last_node(current_path))
+                for new_frontier, frontier_weight in sorted(graph[last_node(current_path)].items(), key=lambda x: x[1]['weight']):
+                    if new_frontier not in explored_2:
+                        frontier_2.append([curr_path_cost + frontier_weight["weight"], current_path + [new_frontier]])
 
 
-def tridirectional_upgraded(graph, goals, heuristic=euclidean_dist_heuristic):
+
+def tridirectional_upgraded(graph, goal, heuristic=euclidean_dist_heuristic):
     """
     Exercise 4: Upgraded Tridirectional Search
 
@@ -466,8 +549,103 @@ def tridirectional_upgraded(graph, goals, heuristic=euclidean_dist_heuristic):
         The best path as a list from one of the goal nodes (including both of
         the other goal nodes).
     """
-    # TODO: finish this function
-    raise NotImplementedError
+    frontier_0, frontier_1, frontier_2, final_path = [PriorityQueue() for _ in range(4)]
+    explored_0, explored_1, explored_2 = [set() for _ in range(3)]
+    g0g1_found, g1g2_found, g0g2_found = [False, []], [False, []], [False, []]
+    frontier_0.append([0, [goal[0]]])
+    frontier_1.append([0, [goal[1]]])
+    frontier_2.append([0, [goal[2]]])
+
+    while True:
+        if not frontier_0.size() or not frontier_1.size() or not frontier_2.size():
+            return last_node(final_path.queue[0]) if final_path.size() else False
+
+        if final_path.count:
+            for final_path_cost, _, fpath in final_path.queue:
+                if goal[0] in fpath and goal[1] in fpath and not g0g1_found:
+                    if frontier_0.queue[0][0] + frontier_1.queue[0][0] > final_path_cost:
+                        g0g1_found = [True, [final_path_cost, final_path]]
+                if goal[1] in fpath and goal[2] in fpath and not g1g2_found:
+                    if frontier_1.queue[0][0] + frontier_2.queue[0][0] > final_path_cost:
+                        g1g2_found = [True, [final_path_cost, final_path]]
+                if goal[0] in fpath and goal[2] in fpath and not g0g2_found:
+                    if frontier_0.queue[0][0] + frontier_2.queue[0][0] > final_path_cost:
+                        g0g2_found = [True, [final_path_cost, final_path]]
+
+        if g0g1_found[0] and g1g2_found[0] and g0g2_found[0]:
+            return merged_path(g0g1_found, g1g2_found, g0g2_found, goal)
+
+        if frontier_0.size():
+            curr_path_cost, current_path = frontier_0.pop()
+            if last_node(current_path) == goal[1]:
+                final_path.append([curr_path_cost, current_path])
+                if not g0g1_found[0] or curr_path_cost < g0g1_found[1][0]:
+                    g0g1_found = [True, [curr_path_cost, current_path]]
+            if last_node(current_path) == goal[2]:
+                final_path.append([curr_path_cost, current_path])
+                if not g0g2_found[0] or curr_path_cost < g0g2_found[1][0]:
+                    g0g2_found = [True, [curr_path_cost, current_path]]
+            if not g0g1_found[0]:
+                for goal_path_cost, _, goal_path in frontier_1.queue:
+                    if last_node(current_path) in goal_path:
+                        final_path.append([curr_path_cost + goal_path_cost, current_path + goal_path[::-1][1:]])
+            if not g0g2_found[0]:
+                for goal_path_cost, _, goal_path in frontier_2.queue:
+                    if last_node(current_path) in goal_path:
+                        final_path.append([curr_path_cost + goal_path_cost, current_path + goal_path[::-1][1:]])
+            if last_node(current_path) not in explored_0:
+                explored_0.add(last_node(current_path))
+                for new_frontier, frontier_weight in sorted(graph[last_node(current_path)].items(), key=lambda x: x[1]['weight']):
+                    if new_frontier not in explored_0:
+                        frontier_0.append([curr_path_cost + frontier_weight["weight"], current_path + [new_frontier]])
+
+        if frontier_1.size():
+            curr_path_cost, current_path = frontier_1.pop()
+            if last_node(current_path) == goal[0]:
+                final_path.append([curr_path_cost, current_path])
+                if not g0g1_found[0] or curr_path_cost < g0g1_found[1][0]:
+                    g0g1_found = [True, [curr_path_cost, current_path]]
+            if last_node(current_path) == goal[2]:
+                final_path.append([curr_path_cost, current_path])
+                if not g1g2_found[0] or curr_path_cost < g1g2_found[1][0]:
+                    g1g2_found = [True, [curr_path_cost, current_path]]
+            if not g0g1_found[0]:
+                for goal_path_cost, _, goal_path in frontier_0.queue:
+                    if last_node(current_path) in goal_path:
+                        final_path.append([curr_path_cost + goal_path_cost, current_path + goal_path[::-1][1:]])
+            if not g1g2_found[0]:
+                for goal_path_cost, _, goal_path in frontier_2.queue:
+                    if last_node(current_path) in goal_path:
+                        final_path.append([curr_path_cost + goal_path_cost, current_path + goal_path[::-1][1:]])
+            if last_node(current_path) not in explored_1:
+                explored_1.add(last_node(current_path))
+                for new_frontier, frontier_weight in sorted(graph[last_node(current_path)].items(), key=lambda x: x[1]['weight']):
+                    if new_frontier not in explored_1:
+                        frontier_1.append([curr_path_cost + frontier_weight["weight"], current_path + [new_frontier]])
+
+        if frontier_2.size():
+            curr_path_cost, current_path = frontier_2.pop()
+            if last_node(current_path) == goal[0]:
+                final_path.append([curr_path_cost, current_path])
+                if not g0g2_found[0] or curr_path_cost < g0g2_found[1][0]:
+                    g0g2_found = [True, [curr_path_cost, current_path]]
+            if last_node(current_path) == goal[1]:
+                final_path.append([curr_path_cost, current_path])
+                if not g1g2_found[0] or curr_path_cost < g1g2_found[1][0]:
+                    g1g2_found = [True, [curr_path_cost, current_path]]
+            if not g0g2_found[0]:
+                for goal_path_cost, _, goal_path in frontier_0.queue:
+                    if last_node(current_path) in goal_path:
+                        final_path.append([curr_path_cost + goal_path_cost, current_path + goal_path[::-1][1:]])
+            if not g1g2_found[0]:
+                for goal_path_cost, _, goal_path in frontier_1.queue:
+                    if last_node(current_path) in goal_path:
+                        final_path.append([curr_path_cost + goal_path_cost, current_path + goal_path[::-1][1:]])
+            if last_node(current_path) not in explored_2:
+                explored_2.add(last_node(current_path))
+                for new_frontier, frontier_weight in sorted(graph[last_node(current_path)].items(), key=lambda x: x[1]['weight']):
+                    if new_frontier not in explored_2:
+                        frontier_2.append([curr_path_cost + frontier_weight["weight"], current_path + [new_frontier]])
 
 
 def return_your_name():
@@ -486,9 +664,7 @@ def custom_heuristic(graph, v, goal):
        Returns:
            Custom heuristic distance between `v` node and `goal` node
        """
-
-
-pass
+    pass
 
 
 # Extra Credit: Your best search method for the race
@@ -513,9 +689,46 @@ def custom_search(graph, start, goal, data=None):
     Returns:
         The best path as a list from the start and goal nodes (including both).
     """
+    # For now just adding a Bi-UCS, will add more changes later on
+    if start == goal: return []
+    frontier_start, frontier_goal, final_path = PriorityQueue(), PriorityQueue(), PriorityQueue()
+    explored_start, explored_goal = set(), set()
+    frontier_start.append([0, [start]])
+    frontier_goal.append([0, [goal]])
+    while True:
+        if not frontier_start.size() or not frontier_goal.size():
+            return final_path.queue[0][-1] if final_path.size() else False
 
-    # TODO: finish this function!
-    raise NotImplementedError
+        if final_path.size() and frontier_start.queue[0][0] + frontier_goal.queue[0][0] > final_path.queue[0][0]:
+            return final_path.queue[0][-1]
+
+        # start
+        curr_cost, path = frontier_start.pop()
+        if goal == path[-1]:
+            return path
+        for goal_frontier in frontier_goal.queue:
+            path_cost, _, goal_path = goal_frontier
+            if path[-1] in goal_path:
+                final_path.append([curr_cost + path_cost, path + goal_path[::-1][1:]])
+        if path[-1] not in explored_start:
+            explored_start.add(path[-1])
+            for new_frontier, weights in sorted(graph[path[-1]].items(), key=lambda x: x[1]['weight']):
+                if new_frontier not in explored_start:
+                    frontier_start.append((curr_cost + weights["weight"], path + [new_frontier]))
+
+        # goal
+        curr_cost, path = frontier_goal.pop()
+        if start == path[-1]:
+            return path[::-1]
+        for start_frontier in frontier_start.queue:
+            path_cost, _, start_path = start_frontier
+            if path[-1] in start_path:
+                final_path.append([curr_cost + path_cost, start_path + path[::-1][1:]])
+        if path[-1] not in explored_goal:
+            explored_goal.add(path[-1])
+            for new_frontier, weights in sorted(graph[path[-1]].items(), key=lambda x: x[1]['weight']):
+                if new_frontier not in explored_start:
+                    frontier_goal.append((curr_cost + weights["weight"], path + [new_frontier]))
 
 
 def load_data(graph, time_left):
