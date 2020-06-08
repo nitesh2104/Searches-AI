@@ -367,7 +367,7 @@ def last_node(queue):
     return queue[-1]
 
 
-def merged_path(path1, path2, path3, goal):
+def merged_path_tri(path1, path2, path3, goal):
     if not path1[0]: merged_paths = [path2] + [path3]
     elif not path2[0]: merged_paths = [path1] + [path3]
     elif not path3[0]: merged_paths = [path1] + [path2]
@@ -378,8 +378,8 @@ def merged_path(path1, path2, path3, goal):
     path2 = last_node(merged_paths[1][1])
 
     if path1 == path2: return path1
-    elif all([x in path2 for x in path1]): return path2
     elif all([x in path1 for x in path2]): return path1
+    elif all([x in path2 for x in path1]): return path2
     else:
         if path1[0] == path2[0]: return path1[::-1][:-1] + path2
         elif path1[-1] == path2[0]: return path1[:-1] + path2
@@ -387,11 +387,54 @@ def merged_path(path1, path2, path3, goal):
         elif path1[-1] == path2[-1]: return path1[:-1] + path2[::-1]
         else: return False
 
+
+def merged_path_tri_upgraded(path1, path2, path3, goal):
+    fpath = []
+    if path1[0] and all([x in path1[1][-1] for x in goal]): fpath.append(path1[1])
+    if path2[0] and all([x in path2[1][-1] for x in goal]): fpath.append(path2[1])
+    if path3[0] and all([x in path3[1][-1] for x in goal]): fpath.append(path3[1])
+    if fpath:
+        val = []
+        if path1[0]: val.append(path1[1][1])
+        if path2[0]: val.append(path2[1][1])
+        if path3[0]: val.append(path3[1][1])
+        val = sorted(val)
+        other_costs = val[0] if len(val) == 1 else val[0] + val[1]
+        if sorted(fpath, key=lambda x: x[1])[0][1] < other_costs: return sorted(fpath, key=lambda x: x[1])[0][-1]
+
+    if not path1[0]: merged_paths = [path2] + [path3]
+    elif not path2[0]: merged_paths = [path1] + [path3]
+    elif not path3[0]: merged_paths = [path1] + [path2]
+    else: merged_paths = [path1] + [path2] + [path3]
+
+    merged_paths = sorted(merged_paths, key=lambda x: x[1][1])
+    path1 = last_node(merged_paths[0][-1])
+    path2 = last_node(merged_paths[1][-1])
+
+    if path1 == path2: return path1
+    elif all([x in path2 for x in goal]): return path2
+    elif all([x in path1 for x in goal]): return path1
+    else:
+        if path1[0] == path2[0]: return path1[::-1][:-1] + path2
+        elif path1[-1] == path2[0]: return path1[:-1] + path2
+        elif path1[0] == path2[-1]: return path2[:-1] + path1
+        elif path1[-1] == path2[-1]: return path1[:-1] + path2[::-1]
+        else: return False
+
+
 def validate(queue):
     try:
         return queue.queue[0][0]
     except:
         return 0
+
+
+def validate_tri_up(queue):
+    try:
+        return sorted(queue.queue, key=lambda x: x[2])[0][2]
+    except:
+        return  0
+
 
 def tridirectional_search(graph, goal):
     """
@@ -407,24 +450,21 @@ def tridirectional_search(graph, goal):
         The best path as a list from one of the goal nodes (including both of
         the other goal nodes).
     """
-    if goal[0] == goal[1] == goal[2]:
-        return []
-
-    frontier_0, frontier_1, frontier_2 = [PriorityQueue() for _ in range(3)]
+    if goal[0] == goal[1] == goal[2]: return []
     explored = dict()
+    frontier_0, frontier_1, frontier_2 = [PriorityQueue() for _ in range(3)]
     g0g1_found, g1g2_found, g0g2_found = [False, [0, None]], [False, [0, None]], [False, [0, None]]
     frontier_0.append([0, [goal[0]]])
     frontier_1.append([0, [goal[1]]])
     frontier_2.append([0, [goal[2]]])
     threshold = 2 # Max explored nodes
-
     while True:
         if not frontier_0.size() and not frontier_1.size() and not frontier_2.size():
-            return merged_path(g0g1_found, g1g2_found, g0g2_found, goal)
+            return merged_path_tri(g0g1_found, g1g2_found, g0g2_found, goal)
 
-        if (g0g1_found[0] and g1g2_found[0]) or (g1g2_found[0] and g0g2_found[0]) or (g0g1_found[0] and g0g2_found[0]):
-            if validate(frontier_0) + validate(frontier_1) >= g0g1_found[1][0] and validate(frontier_1) + validate(frontier_2) >= g1g2_found[1][0] and validate(frontier_0) + validate(frontier_2) >= g0g2_found[1][0]:
-                return merged_path(g0g1_found, g1g2_found, g0g2_found, goal)
+        # if (g0g1_found[0] and g1g2_found[0]) or (g1g2_found[0] and g0g2_found[0]) or (g0g1_found[0] and g0g2_found[0]):
+        #     if validate(frontier_0) + validate(frontier_1) >= g0g1_found[1][0] and validate(frontier_1) + validate(frontier_2) >= g1g2_found[1][0] and validate(frontier_0) + validate(frontier_2) >= g0g2_found[1][0]:
+        #         return merged_path_tri(g0g1_found, g1g2_found, g0g2_found, goal)
 
         if frontier_0.size():
             curr_path_cost, current_path = frontier_0.pop()
@@ -433,20 +473,21 @@ def tridirectional_search(graph, goal):
             if last_node(current_path) == goal[2] and (not g0g2_found[0] or curr_path_cost < g0g2_found[1][0]):
                 g0g2_found = [True, [curr_path_cost, current_path]]
             if not explored.get(last_node(current_path)) or explored.get(last_node(current_path)) < threshold:
-                if explored.get(last_node(current_path)):
-                    explored[last_node(current_path)] += 1
-                else:
-                    explored[last_node(current_path)] = 1
+                explored[last_node(current_path)] = explored[last_node(current_path)] + 1 if explored.get(last_node(current_path)) else 1
                 for new_frontier, frontier_weight in sorted(graph[last_node(current_path)].items(), key=lambda x: x[1]['weight']):
-                    frontier_0.append([curr_path_cost + frontier_weight["weight"], current_path + [new_frontier]])
+                    if not explored.get(new_frontier) or explored.get(new_frontier) == 1:
+                        frontier_0.append([curr_path_cost + frontier_weight["weight"], current_path + [new_frontier]])
                     for goal_path_cost, _, goal_path in frontier_1.queue:
                         if new_frontier in goal_path:
                             if not g0g1_found[0] or curr_path_cost + frontier_weight["weight"] + goal_path_cost < g0g1_found[1][0]:
-                                g0g1_found = [True, [curr_path_cost + frontier_weight["weight"] + goal_path_cost , current_path + [new_frontier] + goal_path[::-1][1:]]]
+                                g0g1_found = [True, [curr_path_cost + frontier_weight["weight"] + goal_path_cost, current_path + [new_frontier] + goal_path[::-1][1:]]]
                     for goal_path_cost, _, goal_path in frontier_2.queue:
                         if new_frontier in goal_path:
                             if not g0g2_found[0] or curr_path_cost + frontier_weight["weight"] + goal_path_cost < g0g2_found[1][0]:
                                 g0g2_found = [True, [curr_path_cost + frontier_weight["weight"] + goal_path_cost, current_path + [new_frontier] + goal_path[::-1][1:]]]
+            if (g0g1_found[0] and g1g2_found[0]) or (g1g2_found[0] and g0g2_found[0]) or (g0g1_found[0] and g0g2_found[0]):
+                if validate(frontier_0) + validate(frontier_1) >= g0g1_found[1][0] and validate(frontier_1) + validate(frontier_2) >= g1g2_found[1][0] and validate(frontier_0) + validate(frontier_2) >= g0g2_found[1][0]:
+                    return merged_path_tri(g0g1_found, g1g2_found, g0g2_found, goal)
 
         if frontier_1.size():
             curr_path_cost, current_path = frontier_1.pop()
@@ -455,12 +496,10 @@ def tridirectional_search(graph, goal):
             if last_node(current_path) == goal[2] and (not g1g2_found[0] or curr_path_cost < g1g2_found[1][0]):
                 g1g2_found = [True, [curr_path_cost, current_path]]
             if not explored.get(last_node(current_path)) or explored.get(last_node(current_path)) < threshold:
-                if explored.get(last_node(current_path)):
-                    explored[last_node(current_path)] += 1
-                else:
-                    explored[last_node(current_path)] = 1
+                explored[last_node(current_path)] = explored[last_node(current_path)] + 1 if explored.get(last_node(current_path)) else 1
                 for new_frontier, frontier_weight in sorted(graph[last_node(current_path)].items(), key=lambda x: x[1]['weight']):
-                    frontier_1.append([curr_path_cost + frontier_weight["weight"], current_path + [new_frontier]])
+                    if not explored.get(new_frontier) or explored.get(new_frontier) == 1:
+                        frontier_1.append([curr_path_cost + frontier_weight["weight"], current_path + [new_frontier]])
                     for goal_path_cost, _, goal_path in frontier_0.queue:
                         if new_frontier in goal_path:
                             if not g0g1_found[0] or curr_path_cost + frontier_weight["weight"] + goal_path_cost < g0g1_found[1][0]:
@@ -469,6 +508,9 @@ def tridirectional_search(graph, goal):
                         if new_frontier in goal_path:
                             if not g1g2_found[0] or curr_path_cost + frontier_weight["weight"] + goal_path_cost < g1g2_found[1][0]:
                                 g1g2_found = [True, [curr_path_cost + frontier_weight["weight"] + goal_path_cost, current_path + [new_frontier] + goal_path[::-1][1:]]]
+            if (g0g1_found[0] and g1g2_found[0]) or (g1g2_found[0] and g0g2_found[0]) or (g0g1_found[0] and g0g2_found[0]):
+                if validate(frontier_0) + validate(frontier_1) >= g0g1_found[1][0] and validate(frontier_1) + validate(frontier_2) >= g1g2_found[1][0] and validate(frontier_0) + validate(frontier_2) >= g0g2_found[1][0]:
+                    return merged_path_tri(g0g1_found, g1g2_found, g0g2_found, goal)
 
         if frontier_2.size():
             curr_path_cost, current_path = frontier_2.pop()
@@ -477,12 +519,10 @@ def tridirectional_search(graph, goal):
             if last_node(current_path) == goal[1] and (not g1g2_found[0] or curr_path_cost < g1g2_found[1][0]):
                 g1g2_found = [True, [curr_path_cost, current_path]]
             if not explored.get(last_node(current_path)) or explored.get(last_node(current_path)) < threshold:
-                if explored.get(last_node(current_path)):
-                    explored[last_node(current_path)] += 1
-                else:
-                    explored[last_node(current_path)] = 1
+                explored[last_node(current_path)] = explored[last_node(current_path)] + 1 if explored.get(last_node(current_path)) else 1
                 for new_frontier, frontier_weight in sorted(graph[last_node(current_path)].items(), key=lambda x: x[1]['weight']):
-                    frontier_2.append([curr_path_cost + frontier_weight["weight"], current_path + [new_frontier]])
+                    if not explored.get(new_frontier) or explored.get(new_frontier) == 1:
+                        frontier_2.append([curr_path_cost + frontier_weight["weight"], current_path + [new_frontier]])
                     for goal_path_cost, _, goal_path in frontier_0.queue:
                         if new_frontier in goal_path:
                             if not g0g2_found[0] or curr_path_cost + frontier_weight["weight"] + goal_path_cost < g0g2_found[1][0]:
@@ -491,108 +531,9 @@ def tridirectional_search(graph, goal):
                         if new_frontier in goal_path:
                             if not g1g2_found[0] or curr_path_cost + frontier_weight["weight"] + goal_path_cost < g1g2_found[1][0]:
                                 g1g2_found = [True, [curr_path_cost + frontier_weight["weight"] + goal_path_cost, current_path + [new_frontier] + goal_path[::-1][1:]]]
-
-
-def tridirectional_upgraded(graph, goal, heuristic=euclidean_dist_heuristic):
-    """
-    Exercise 4: Upgraded Tridirectional Search
-
-    See README.MD for exercise description.
-
-    Args:
-        graph (ExplorableGraph): Undirected graph to search.
-        goals (list): Key values for the 3 goals
-        heuristic: Function to determine distance heuristic.
-            Default: euclidean_dist_heuristic.
-
-    Returns:
-        The best path as a list from one of the goal nodes (including both of
-        the other goal nodes).
-    """
-    if goal[0] == goal[1] == goal[2]:
-        return []
-
-    frontier_0, frontier_1, frontier_2 = [PriorityQueue() for _ in range(3)]
-    explored = dict()
-    g0g1_found, g1g2_found, g0g2_found = [False, [0, None]], [False, [0, None]], [False, [0, None]]
-    frontier_0.append([0, [goal[0]]])
-    frontier_1.append([0, [goal[1]]])
-    frontier_2.append([0, [goal[2]]])
-    threshold = 2  # Max explored nodes
-
-    while True:
-        if not frontier_0.size() and not frontier_1.size() and not frontier_2.size():
-            return merged_path(g0g1_found, g1g2_found, g0g2_found, goal)
-
-        if (g0g1_found[0] and g1g2_found[0]) or (g1g2_found[0] and g0g2_found[0]) or (g0g1_found[0] and g0g2_found[0]):
-            if validate(frontier_0) + validate(frontier_1) >= g0g1_found[1][0] and validate(frontier_1) + validate(frontier_2) >= g1g2_found[1][0] and validate(frontier_0) + validate(frontier_2) >= g0g2_found[1][0]:
-                return merged_path(g0g1_found, g1g2_found, g0g2_found, goal)
-
-        if frontier_0.size():
-            curr_path_cost, current_path = frontier_0.pop()
-            if last_node(current_path) == goal[1] and (not g0g1_found[0] or curr_path_cost < g0g1_found[1][0]):
-                g0g1_found = [True, [curr_path_cost, current_path]]
-            if last_node(current_path) == goal[2] and (not g0g2_found[0] or curr_path_cost < g0g2_found[1][0]):
-                g0g2_found = [True, [curr_path_cost, current_path]]
-            if not explored.get(last_node(current_path)) or explored.get(last_node(current_path)) < threshold:
-                if explored.get(last_node(current_path)):
-                    explored[last_node(current_path)] += 1
-                else:
-                    explored[last_node(current_path)] = 1
-                for new_frontier, frontier_weight in sorted(graph[last_node(current_path)].items(), key=lambda x: x[1]['weight']):
-                    frontier_0.append([curr_path_cost + frontier_weight["weight"], current_path + [new_frontier]])
-                    for goal_path_cost, _, goal_path in frontier_1.queue:
-                        if new_frontier in goal_path:
-                            if not g0g1_found[0] or curr_path_cost + frontier_weight["weight"] + goal_path_cost < g0g1_found[1][0]:
-                                g0g1_found = [True, [curr_path_cost + frontier_weight["weight"] + goal_path_cost, current_path + [new_frontier] + goal_path[::-1][1:]]]
-                    for goal_path_cost, _, goal_path in frontier_2.queue:
-                        if new_frontier in goal_path:
-                            if not g0g2_found[0] or curr_path_cost + frontier_weight["weight"] + goal_path_cost < g0g2_found[1][0]:
-                                g0g2_found = [True, [curr_path_cost + frontier_weight["weight"] + goal_path_cost, current_path + [new_frontier] + goal_path[::-1][1:]]]
-
-        if frontier_1.size():
-            curr_path_cost, current_path = frontier_1.pop()
-            if last_node(current_path) == goal[0] and (not g0g1_found[0] or curr_path_cost < g0g1_found[1][0]):
-                g0g1_found = [True, [curr_path_cost, current_path]]
-            if last_node(current_path) == goal[2] and (not g1g2_found[0] or curr_path_cost < g1g2_found[1][0]):
-                g1g2_found = [True, [curr_path_cost, current_path]]
-            if not explored.get(last_node(current_path)) or explored.get(last_node(current_path)) < threshold:
-                if explored.get(last_node(current_path)):
-                    explored[last_node(current_path)] += 1
-                else:
-                    explored[last_node(current_path)] = 1
-                for new_frontier, frontier_weight in sorted(graph[last_node(current_path)].items(), key=lambda x: x[1]['weight']):
-                    frontier_1.append([curr_path_cost + frontier_weight["weight"], current_path + [new_frontier]])
-                    for goal_path_cost, _, goal_path in frontier_0.queue:
-                        if new_frontier in goal_path:
-                            if not g0g1_found[0] or curr_path_cost + frontier_weight["weight"] + goal_path_cost < g0g1_found[1][0]:
-                                g0g1_found = [True, [curr_path_cost + frontier_weight["weight"] + goal_path_cost, current_path + [new_frontier] + goal_path[::-1][1:]]]
-                    for goal_path_cost, _, goal_path in frontier_2.queue:
-                        if new_frontier in goal_path:
-                            if not g1g2_found[0] or curr_path_cost + frontier_weight["weight"] + goal_path_cost < g1g2_found[1][0]:
-                                g1g2_found = [True, [curr_path_cost + frontier_weight["weight"] + goal_path_cost, current_path + [new_frontier] + goal_path[::-1][1:]]]
-
-        if frontier_2.size():
-            curr_path_cost, current_path = frontier_2.pop()
-            if last_node(current_path) == goal[0] and (not g0g2_found[0] or curr_path_cost < g0g2_found[1][0]):
-                g0g2_found = [True, [curr_path_cost, current_path]]
-            if last_node(current_path) == goal[1] and (not g1g2_found[0] or curr_path_cost < g1g2_found[1][0]):
-                g1g2_found = [True, [curr_path_cost, current_path]]
-            if not explored.get(last_node(current_path)) or explored.get(last_node(current_path)) < threshold:
-                if explored.get(last_node(current_path)):
-                    explored[last_node(current_path)] += 1
-                else:
-                    explored[last_node(current_path)] = 1
-                for new_frontier, frontier_weight in sorted(graph[last_node(current_path)].items(), key=lambda x: x[1]['weight']):
-                    frontier_2.append([curr_path_cost + frontier_weight["weight"], current_path + [new_frontier]])
-                    for goal_path_cost, _, goal_path in frontier_0.queue:
-                        if new_frontier in goal_path:
-                            if not g0g2_found[0] or curr_path_cost + frontier_weight["weight"] + goal_path_cost < g0g2_found[1][0]:
-                                g0g2_found = [True, [curr_path_cost + frontier_weight["weight"] + goal_path_cost, current_path + [new_frontier] + goal_path[::-1][1:]]]
-                    for goal_path_cost, _, goal_path in frontier_1.queue:
-                        if new_frontier in goal_path:
-                            if not g1g2_found[0] or curr_path_cost + frontier_weight["weight"] + goal_path_cost < g1g2_found[1][0]:
-                                g1g2_found = [True, [curr_path_cost + frontier_weight["weight"] + goal_path_cost, current_path + [new_frontier] + goal_path[::-1][1:]]]
+            if (g0g1_found[0] and g1g2_found[0]) or (g1g2_found[0] and g0g2_found[0]) or (g0g1_found[0] and g0g2_found[0]):
+                if validate(frontier_0) + validate(frontier_1) >= g0g1_found[1][0] and validate(frontier_1) + validate(frontier_2) >= g1g2_found[1][0] and validate(frontier_0) + validate(frontier_2) >= g0g2_found[1][0]:
+                    return merged_path_tri(g0g1_found, g1g2_found, g0g2_found, goal)
 
 
 def return_your_name():
