@@ -536,6 +536,107 @@ def tridirectional_search(graph, goal):
                     return merged_path_tri(g0g1_found, g1g2_found, g0g2_found, goal)
 
 
+def tridirectional_upgraded(graph, goal, heuristic=euclidean_dist_heuristic):
+    """
+    Exercise 4: Upgraded Tridirectional Search
+
+    See README.MD for exercise description.
+
+    Args:
+        graph (ExplorableGraph): Undirected graph to search.
+        goals (list): Key values for the 3 goals
+        heuristic: Function to determine distance heuristic.
+            Default: euclidean_dist_heuristic.
+
+    Returns:
+        The best path as a list from one of the goal nodes (including both of
+        the other goal nodes).
+    """
+    if goal[0] == goal[1] == goal[2]: return []
+    explored = dict()
+    frontier_0, frontier_1, frontier_2 = [PriorityQueue() for _ in range(3)]
+    g0g1_found, g1g2_found, g0g2_found = [False, [0, 0, None]], [False, [0, 0, None]], [False, [0, 0, None]]
+    frontier_0.append([heuristic(graph, goal[0], goal[1]) + heuristic(graph, goal[0], goal[2]), 0, [goal[0]]])
+    frontier_1.append([heuristic(graph, goal[1], goal[0]) + heuristic(graph, goal[1], goal[2]), 0, [goal[1]]])
+    frontier_2.append([heuristic(graph, goal[2], goal[0]) + heuristic(graph, goal[2], goal[1]), 0, [goal[2]]])
+    threshold = 3  # Max explored nodes
+    while True:
+        if not frontier_0.size() and not frontier_1.size() and not frontier_2.size():
+            return merged_path_tri_upgraded(g0g1_found, g1g2_found, g0g2_found, goal)
+
+        if (g0g1_found[0] and g1g2_found[0]) or (g1g2_found[0] and g0g2_found[0]) or (g0g1_found[0] and g0g2_found[0]):
+            if validate_tri_up(frontier_0) + validate_tri_up(frontier_1) >= g0g1_found[1][1] and validate_tri_up(frontier_1) + validate_tri_up(frontier_2) >= g1g2_found[1][1] and validate_tri_up(frontier_0) + validate_tri_up(frontier_2) >= g0g2_found[1][1]:
+                return merged_path_tri_upgraded(g0g1_found, g1g2_found, g0g2_found, goal)
+
+        if frontier_0.size():
+            distance_to_goal, curr_path_cost, current_path = frontier_0.pop()
+            if last_node(current_path) == goal[1] and (not g0g1_found[0] or curr_path_cost < g0g1_found[1][1]):
+                g0g1_found = [True, [0, curr_path_cost, current_path]]
+            if last_node(current_path) == goal[2] and (not g0g2_found[0] or curr_path_cost < g0g2_found[1][1]):
+                g0g2_found = [True, [0, curr_path_cost, current_path]]
+            if not explored.get(last_node(current_path)) or explored.get(last_node(current_path)) < threshold:
+                explored[last_node(current_path)] = explored[last_node(current_path)] + 1 if explored.get(last_node(current_path)) else 1
+                for new_frontier, frontier_weight in sorted(graph[last_node(current_path)].items(), key=lambda x: x[1]['weight']):
+                    if not explored.get(new_frontier) or explored.get(new_frontier) == 1:
+                        frontier_0.append([curr_path_cost + frontier_weight["weight"] + heuristic(graph, new_frontier, goal[1]) + heuristic(graph, new_frontier, goal[2]), curr_path_cost + frontier_weight["weight"], current_path + [new_frontier]])
+                    for _, _, goal_path_cost, goal_path in frontier_1.queue:
+                        if new_frontier in goal_path:
+                            if not g0g1_found[0] or curr_path_cost + frontier_weight["weight"] + goal_path_cost < g0g1_found[1][1]:
+                                g0g1_found = [True, [0, curr_path_cost + frontier_weight["weight"] + goal_path_cost, current_path + [new_frontier] + goal_path[::-1][1:]]]
+                    for _, _, goal_path_cost, goal_path in frontier_2.queue:
+                        if new_frontier in goal_path:
+                            if not g0g2_found[0] or curr_path_cost + frontier_weight["weight"] + goal_path_cost < g0g2_found[1][1]:
+                                g0g2_found = [True, [0, curr_path_cost + frontier_weight["weight"] + goal_path_cost, current_path + [new_frontier] + goal_path[::-1][1:]]]
+
+        if (g0g1_found[0] and g1g2_found[0]) or (g1g2_found[0] and g0g2_found[0]) or (g0g1_found[0] and g0g2_found[0]):
+            if validate_tri_up(frontier_0) + validate_tri_up(frontier_1) >= g0g1_found[1][1] and validate_tri_up(frontier_1) + validate_tri_up(frontier_2) >= g1g2_found[1][1] and validate_tri_up(frontier_0) + validate_tri_up(frontier_2) >= g0g2_found[1][1]:
+                return merged_path_tri_upgraded(g0g1_found, g1g2_found, g0g2_found, goal)
+
+        if frontier_1.size():
+            distance_to_goal, curr_path_cost, current_path = frontier_1.pop()
+            if last_node(current_path) == goal[0] and (not g0g1_found[0] or curr_path_cost < g0g1_found[1][1]):
+                g0g1_found = [True, [distance_to_goal, curr_path_cost, current_path]]
+            if last_node(current_path) == goal[2] and (not g1g2_found[0] or curr_path_cost < g1g2_found[1][1]):
+                g1g2_found = [True, [distance_to_goal, curr_path_cost, current_path]]
+            if not explored.get(last_node(current_path)) or explored.get(last_node(current_path)) < threshold:
+                explored[last_node(current_path)] = explored[last_node(current_path)] + 1 if explored.get(last_node(current_path)) else 1
+                for new_frontier, frontier_weight in sorted(graph[last_node(current_path)].items(), key=lambda x: x[1]['weight']):
+                    if not explored.get(new_frontier) or explored.get(new_frontier) == 1:
+                        frontier_1.append([curr_path_cost + frontier_weight["weight"] + heuristic(graph, new_frontier, goal[0]) + heuristic(graph, new_frontier, goal[2]), curr_path_cost + frontier_weight["weight"], current_path + [new_frontier]])
+                    for _, _, goal_path_cost, goal_path in frontier_0.queue:
+                        if new_frontier in goal_path:
+                            if not g0g1_found[0] or curr_path_cost + frontier_weight["weight"] + goal_path_cost < g0g1_found[1][1]:
+                                g0g1_found = [True, [0, curr_path_cost + frontier_weight["weight"] + goal_path_cost, current_path + [new_frontier] + goal_path[::-1][1:]]]
+                    for _, _, goal_path_cost, goal_path in frontier_2.queue:
+                        if new_frontier in goal_path:
+                            if not g1g2_found[0] or curr_path_cost + frontier_weight["weight"] + goal_path_cost < g1g2_found[1][1]:
+                                g1g2_found = [True, [0, curr_path_cost + frontier_weight["weight"] + goal_path_cost, current_path + [new_frontier] + goal_path[::-1][1:]]]
+
+        if (g0g1_found[0] and g1g2_found[0]) or (g1g2_found[0] and g0g2_found[0]) or (g0g1_found[0] and g0g2_found[0]):
+            if validate_tri_up(frontier_0) + validate_tri_up(frontier_1) >= g0g1_found[1][1] and validate_tri_up(frontier_1) + validate_tri_up(frontier_2) >= g1g2_found[1][1] and validate_tri_up(frontier_0) + validate_tri_up(frontier_2) >= g0g2_found[1][1]:
+                return merged_path_tri_upgraded(g0g1_found, g1g2_found, g0g2_found, goal)
+
+        if frontier_2.size():
+            distance_to_goal, curr_path_cost, current_path = frontier_2.pop()
+            if last_node(current_path) == goal[0] and (not g0g2_found[0] or curr_path_cost < g0g2_found[1][1]):
+                g0g2_found = [True, [0, curr_path_cost, current_path]]
+            if last_node(current_path) == goal[1] and (not g1g2_found[0] or curr_path_cost < g1g2_found[1][1]):
+                g1g2_found = [True, [0, curr_path_cost, current_path]]
+            if not explored.get(last_node(current_path)) or explored.get(last_node(current_path)) < threshold:
+                explored[last_node(current_path)] = explored[last_node(current_path)] + 1 if explored.get(last_node(current_path)) else 1
+                for new_frontier, frontier_weight in sorted(graph[last_node(current_path)].items(), key=lambda x: x[1]['weight']):
+                    if not explored.get(new_frontier) or explored.get(new_frontier) == 1:
+                        frontier_2.append([curr_path_cost + frontier_weight["weight"] + heuristic(graph, new_frontier, goal[0]) + heuristic(graph, new_frontier, goal[1]), curr_path_cost + frontier_weight["weight"], current_path + [new_frontier]])
+                    for _, _, goal_path_cost, goal_path in frontier_0.queue:
+                        if new_frontier in goal_path:
+                            if not g0g2_found[0] or curr_path_cost + frontier_weight["weight"] + goal_path_cost < g0g2_found[1][1]:
+                                g0g2_found = [True, [0, curr_path_cost + frontier_weight["weight"] + goal_path_cost, current_path + [new_frontier] + goal_path[::-1][1:]]]
+                    for _, _, goal_path_cost, goal_path in frontier_1.queue:
+                        if new_frontier in goal_path:
+                            if not g1g2_found[0] or curr_path_cost + frontier_weight["weight"] + goal_path_cost < g1g2_found[1][1]:
+                                g1g2_found = [True, [0, curr_path_cost + frontier_weight["weight"] + goal_path_cost, current_path + [new_frontier] + goal_path[::-1][1:]]]
+
+
 def return_your_name():
     """Return your name from this function"""
     name = "Nitesh Arora"
